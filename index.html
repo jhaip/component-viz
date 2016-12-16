@@ -1,0 +1,59 @@
+<html>
+    <head>
+        <title>Components</title>
+        <style>
+            text {
+                fill: black;
+                font-size: 20px;
+            }
+            #stage {
+                position: relative;
+                width: 400px;
+                height: 100px;
+            }
+            #stage .item {
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 400px;
+                height: 100px;
+            }
+            .clearfix {
+                clear: both;
+            }
+            body {
+                font-family: Helvetica, sans-serif;
+            }
+            h5 {
+                color: #AAA;
+            }
+        </style>
+    </head>
+    <body>
+        <h5>(1) Line Graph</h5>
+        <div id="stage" class="stage"></div>
+        <h5>(2) Text</h5>
+        <div id="stage2" class="stage"></div>
+        <h5>(3) Color</h5>
+        <div id="stage3" class="stage"></div>
+        <div class="clearfix"></div>
+        <h5>(4) Circle Radius</h5>
+        <div id="stage4" class="stage"></div>
+        <h5>(5) Entire Window Visualization</h5>
+        <div id="stage5" class="stage"></div>
+
+        <br>
+        <div>
+            <h4>Data Window Control</h4>
+            <input type="range" id="windowStart" min="0" max="120" step="1" oninput="updateScene(value)">
+            <strong id="windowStartValue"></strong>
+        </div>
+        <div>
+            <button id="addDataButton">Add Data</button>
+        </div>
+
+        <script src="https://code.jquery.com/jquery-3.1.1.min.js"></script>
+        <script src="https://d3js.org/d3.v4.min.js"></script>
+        <script src="script.js"></script>
+    </body>
+</html>
