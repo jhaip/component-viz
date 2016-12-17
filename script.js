@@ -95,7 +95,7 @@ class EntireWindowVisualizer extends BaseVisualizer {
     }
 }
 
-var data = [0,1,2,5,8,1,3,5,3,9,3,5,3,9,2,5,8,1,3];
+var data = [4];
 var WINDOW_SIZE = 7;
 var visualizers = [new TextVisualizer($("#stage2").get(0), WINDOW_SIZE),
                    new LineGraphVisualizer($("#stage").get(0), WINDOW_SIZE),
@@ -103,20 +103,33 @@ var visualizers = [new TextVisualizer($("#stage2").get(0), WINDOW_SIZE),
                    new CircleVisualizer($("#stage4").get(0), WINDOW_SIZE),
                    new EntireWindowVisualizer($("#stage5").get(0), WINDOW_SIZE)];
 
+function confineIndexToWindow(index) {
+    if (index < 0)
+        return 0;
+    if (index >= data.length)
+        return data.length-1;
+    return index;
+}
+
 function updateScene(windowStart) {
     windowStart = parseInt(windowStart);
+    windowStart = Math.max(0, windowStart);
+    var windowEnd = confineIndexToWindow(windowStart+WINDOW_SIZE);
     $(".stage").empty();
     $("#windowStart").val(windowStart);
-    $("#windowStartValue").text(`Window: ${windowStart} - ${windowStart+WINDOW_SIZE}`);
+    $("#windowStartValue").text(`Window: ${windowStart} - ${windowEnd}`);
     var windowStartOffset = Math.min(...visualizers.map(function(v) { return v.startIndexInWindow; }))
     for (var i=windowStartOffset; i<WINDOW_SIZE; i++) {
-        if (i >= 0) {
+        var indexOutsideWindow = windowStart + i;
+        if (indexOutsideWindow >= Math.min(data.length-1, 0) && indexOutsideWindow < data.length) {
             visualizers.forEach(function(v) {
                 if (i >= v.startIndexInWindow && i <= v.stopIndexInWindow) {
                     if (v.inputSize > 1) {
-                        v.visualize(windowStart+i, i, data.slice(windowStart+i, windowStart+i+v.inputSize));
+                        if (indexOutsideWindow+v.inputSize <= data.length) {
+                            v.visualize(indexOutsideWindow, i, data.slice(indexOutsideWindow, indexOutsideWindow+v.inputSize));
+                        }
                     } else {
-                        v.visualize(windowStart+i, i, data[windowStart+i]);
+                        v.visualize(indexOutsideWindow, i, data[indexOutsideWindow]);
                     }
                 }
             });
@@ -131,13 +144,26 @@ function getRandomInt(min, max) {
 }
 
 function update_data() {
-    $("#windowStart").attr("max", data.length-WINDOW_SIZE);
+    $("#windowStart").attr("max", Math.max(data.length-1, data.length-WINDOW_SIZE));
     updateScene(data.length-WINDOW_SIZE);
 }
 
 $("#addDataButton").click(function(e) {
     data.push(getRandomInt(0,10));
     update_data();
+});
+
+$("#playButton").click(function(e) {
+    var start = $("#windowStart").val();
+    var stop = $("#windowStart").attr("max");
+    var i = start;
+    var timer = setInterval(function() {
+        updateScene(i);
+        i++;
+        if (i > stop) {
+            clearInterval(timer);
+        }
+    }, 100);
 });
 
 update_data();
