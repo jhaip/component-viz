@@ -1,25 +1,59 @@
 class BaseVisualizer {
     constructor(parent, windowSize) {
-        this.parent = parent
-        this.windowSize = windowSize
-        this.inputSize = 1
-        this.startIndexInWindow = 0
-        this.stopIndexInWindow = this.windowSize-1
+        this.parent = parent;
     }
 }
 
-class TextVisualizer extends BaseVisualizer {
+class SingleIterationSelector extends BaseVisualizer {
+    selectIndices(windowStart, windowEnd) {
+        var indices = [];
+        for (var i = windowStart; i <= windowEnd; i++) {
+            indices.push([i, 1]);
+        }
+        return indices;
+    }
+}
+
+class LastValueSelector extends BaseVisualizer {
+    selectIndices(windowStart, windowEnd) {
+        return [[windowEnd, 1]];
+    }
+}
+
+class PairIterationSelector extends BaseVisualizer {
+    selectIndices(windowStart, windowEnd) {
+        var indices = [];
+        for (var i = Math.max(0, windowStart-1); i <= windowEnd-1; i++) {
+            indices.push([i,2]);
+        }
+        return indices;
+    }
+}
+class WholeWindowSelector extends BaseVisualizer {
+    selectIndices(windowStart, windowEnd) {
+        return [[windowStart, windowEnd-windowStart+1]];
+    }
+}
+
+class LogVisualizer extends SingleIterationSelector {
     visualize(index, index_in_window, data) {
         // using jQuery to append a text element
-        var el = $("<span></span>").attr("class", "item").text(data+", ");
+        var el = $("<div></div>").attr("class", "item").text(`Value = ${data[0]}`);
+        $(this.parent).append(el);
+    }
+}
+class LastValueTextVisualizer extends LastValueSelector {
+    visualize(index, index_in_window, data) {
+        // using jQuery to append a text element
+        var el = $("<div></div>").attr("class", "item").text(`Value = ${data[0]}`);
         $(this.parent).append(el);
     }
 }
 
-class LineGraphVisualizer extends BaseVisualizer {
-    constructor(parent, windowSize, xScale = 20, yScale = 10, color = "black", dotRadius = 2) {
-        super(parent, windowSize);
-        this.inputSize = 2
+class LineGraphVisualizer extends PairIterationSelector {
+    constructor(parent, xScale = 20, yScale = 10, color = "black", dotRadius = 2) {
+        super(parent, 0);
+        this.inputSize = 2;
         this.xScale = xScale;
         this.yScale = yScale;
         this.color = color;
@@ -48,7 +82,7 @@ class LineGraphVisualizer extends BaseVisualizer {
     }
 }
 
-class ColorVisualizer extends BaseVisualizer {
+class ColorVisualizer extends SingleIterationSelector {
     visualize(index, index_in_window, data) {
         d3.select(this.parent).append("div")
             .attr("class", "item")
@@ -59,9 +93,9 @@ class ColorVisualizer extends BaseVisualizer {
     }
 }
 
-class CircleVisualizer extends BaseVisualizer {
-    constructor(parent, windowSize, elementSize = 40, color = "red") {
-        super(parent, windowSize);
+class CircleVisualizer extends SingleIterationSelector {
+    constructor(parent, elementSize = 40, color = "red") {
+        super(parent, 0);
         this.elementSize = elementSize;
         this.color = color;
     }
@@ -79,12 +113,7 @@ class CircleVisualizer extends BaseVisualizer {
     }
 }
 
-class EntireWindowVisualizer extends BaseVisualizer {
-    constructor(parent, windowSize) {
-        super(parent, windowSize);
-        this.inputSize = windowSize;
-        this.stopIndexInWindow = 0;
-    }
+class EntireWindowVisualizer extends WholeWindowSelector {
     visualize(index, index_in_window, data) {
         // proof that the entire window can be passed in at once to create a graph as normal
         // one example fit is using d3 to render the entire window and to take advantage
@@ -95,46 +124,50 @@ class EntireWindowVisualizer extends BaseVisualizer {
     }
 }
 
-var data = [4];
-var WINDOW_SIZE = 7;
-var visualizers = [new TextVisualizer($("#stage2").get(0), WINDOW_SIZE),
-                   new LineGraphVisualizer($("#stage").get(0), WINDOW_SIZE),
-                   new ColorVisualizer($("#stage3").get(0), WINDOW_SIZE),
-                   new CircleVisualizer($("#stage4").get(0), WINDOW_SIZE),
-                   new EntireWindowVisualizer($("#stage5").get(0), WINDOW_SIZE)];
+class PlotlyLineVisualizer extends WholeWindowSelector {
+    visualize(index, index_in_window, data) {
+        // proof that the entire window can be passed in at once to create a graph as normal
+        // one example fit is using d3 to render the entire window and to take advantage
+        // of transitions, updates, etc of d3 that aren't available when creating each
+        // visual individually.
+        var el = $("<div></div>").attr("id", "myDiv").css({width: "400px", height: "400px"});
+        $(this.parent).append(el);
 
-function confineIndexToWindow(index) {
-    if (index < 0)
-        return 0;
-    if (index >= data.length)
-        return data.length-1;
-    return index;
+        var x = [];
+        for (var i=0; i<data.length; i++) {
+            x.push(i);
+        }
+
+        var trace = {
+          x: x,
+          y: data,
+          type: 'scatter'
+        };
+
+        Plotly.newPlot('myDiv', [trace]);
+    }
 }
 
-function updateScene(windowStart) {
-    windowStart = parseInt(windowStart);
-    windowStart = Math.max(0, windowStart);
-    var windowEnd = confineIndexToWindow(windowStart+WINDOW_SIZE);
+var data = [4];
+var WINDOW_SIZE = 7;
+var visualizers = [new LogVisualizer($("#stage").get(0)),
+                   new LastValueTextVisualizer($("#stage2").get(0)),
+                   new LineGraphVisualizer($("#stage3").get(0)),
+                   new ColorVisualizer($("#stage4").get(0)),
+                   new CircleVisualizer($("#stage5").get(0)),
+                   new EntireWindowVisualizer($("#stage6").get(0)),
+                   new PlotlyLineVisualizer($("#stage7").get(0))
+                  ];
+
+function updateScene(windowStart, windowEnd) {
     $(".stage").empty();
-    $("#windowStart").val(windowStart);
-    $("#windowStartValue").text(`Window: ${windowStart} - ${windowEnd}`);
-    var windowStartOffset = Math.min(...visualizers.map(function(v) { return v.startIndexInWindow; }))
-    for (var i=windowStartOffset; i<WINDOW_SIZE; i++) {
-        var indexOutsideWindow = windowStart + i;
-        if (indexOutsideWindow >= Math.min(data.length-1, 0) && indexOutsideWindow < data.length) {
-            visualizers.forEach(function(v) {
-                if (i >= v.startIndexInWindow && i <= v.stopIndexInWindow) {
-                    if (v.inputSize > 1) {
-                        if (indexOutsideWindow+v.inputSize <= data.length) {
-                            v.visualize(indexOutsideWindow, i, data.slice(indexOutsideWindow, indexOutsideWindow+v.inputSize));
-                        }
-                    } else {
-                        v.visualize(indexOutsideWindow, i, data[indexOutsideWindow]);
-                    }
-                }
-            });
-        }
-    }
+    visualizers.forEach(function(v) {
+        v.selectIndices(windowStart, windowEnd).forEach(function(i_n) {
+            var i = i_n[0];
+            var n = i_n[1];
+            v.visualize(i, i-windowStart, data.slice(i, i+n));
+        });
+    });
 }
 
 function getRandomInt(min, max) {
@@ -144,8 +177,11 @@ function getRandomInt(min, max) {
 }
 
 function update_data() {
-    $("#windowStart").attr("max", Math.max(data.length-1, data.length-WINDOW_SIZE));
-    updateScene(data.length-WINDOW_SIZE);
+    $( "#slider-range" ).slider( "option", "max", data.length-1 );
+    var newMin = Math.max(0, data.length-WINDOW_SIZE);
+    $( "#slider-range" ).slider( "option", "values", [newMin, data.length-1] );
+    update_slider_text();
+    updateScene(newMin, data.length-1);
 }
 
 $("#addDataButton").click(function(e) {
@@ -153,9 +189,18 @@ $("#addDataButton").click(function(e) {
     update_data();
 });
 
+var STOP_AT_FULL_WINDOW_IF_POSSIBLE = true;
 $("#playButton").click(function(e) {
-    var start = $("#windowStart").val();
-    var stop = $("#windowStart").attr("max");
+    var start = parseInt($("#windowStart").val());
+    var stop = parseInt($("#windowStart").attr("max"));
+    if (start == stop) {
+        start = parseInt($("#windowStart").attr("min"));
+    }
+    if (STOP_AT_FULL_WINDOW_IF_POSSIBLE) {
+        if (stop >= WINDOW_SIZE) {
+            stop = data.length-WINDOW_SIZE;
+        }
+    }
     var i = start;
     var timer = setInterval(function() {
         updateScene(i);
@@ -165,5 +210,26 @@ $("#playButton").click(function(e) {
         }
     }, 100);
 });
+
+function update_slider_text() {
+    var min = slider.slider("values", 0);
+    var max = slider.slider("values", 1);
+    $( "#amount" ).val(`${min} - ${max}`);
+}
+
+var slider = $( "#slider-range" ).slider({
+    range: true,
+    min: 0,
+    max: 0,
+    values: [ 0, 0 ],
+    slide: function( event, ui ) {
+      update_slider_text();
+    }
+});
+// $( "#slider-range" ).slider( "option", "values", [10,250] );
+// $( "#slider-range" ).slider( "option", "min", 10 );
+// $( ".selector" ).slider({ change: function( event, ui ) {} });
+// $( "#amount" ).val( "$" + $( "#slider-range" ).slider( "values", 0 ) + " - $" + $( "#slider-range" ).slider( "values", 1 ) );
+update_slider_text();
 
 update_data();
