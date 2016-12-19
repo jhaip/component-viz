@@ -184,36 +184,13 @@ function update_data() {
     updateScene(newMin, data.length-1);
 }
 
-$("#addDataButton").click(function(e) {
-    data.push(getRandomInt(0,10));
-    update_data();
-});
-
-var STOP_AT_FULL_WINDOW_IF_POSSIBLE = true;
-$("#playButton").click(function(e) {
-    var start = parseInt($("#windowStart").val());
-    var stop = parseInt($("#windowStart").attr("max"));
-    if (start == stop) {
-        start = parseInt($("#windowStart").attr("min"));
+function update_slider_text(min, max) {
+    if (min === undefined) {
+        min = slider.slider("values", 0);
     }
-    if (STOP_AT_FULL_WINDOW_IF_POSSIBLE) {
-        if (stop >= WINDOW_SIZE) {
-            stop = data.length-WINDOW_SIZE;
-        }
+    if (max === undefined) {
+        max = slider.slider("values", 1);
     }
-    var i = start;
-    var timer = setInterval(function() {
-        updateScene(i);
-        i++;
-        if (i > stop) {
-            clearInterval(timer);
-        }
-    }, 100);
-});
-
-function update_slider_text() {
-    var min = slider.slider("values", 0);
-    var max = slider.slider("values", 1);
     $( "#amount" ).val(`${min} - ${max}`);
 }
 
@@ -223,13 +200,31 @@ var slider = $( "#slider-range" ).slider({
     max: 0,
     values: [ 0, 0 ],
     slide: function( event, ui ) {
-      update_slider_text();
+        var min = ui.values[0];
+        var max = ui.values[1];
+        update_slider_text(min, max);
+        updateScene(min, max);
     }
 });
-// $( "#slider-range" ).slider( "option", "values", [10,250] );
-// $( "#slider-range" ).slider( "option", "min", 10 );
-// $( ".selector" ).slider({ change: function( event, ui ) {} });
-// $( "#amount" ).val( "$" + $( "#slider-range" ).slider( "values", 0 ) + " - $" + $( "#slider-range" ).slider( "values", 1 ) );
-update_slider_text();
 
+$("#addDataButton").click(function(e) {
+    data.push(getRandomInt(0,10));
+    update_data();
+});
+
+$("#playButton").click(function(e) {
+    var stop = $( "#slider-range" ).slider("option", "max");
+    var i = 0;
+    var timer = setInterval(function() {
+        var newMin = Math.max(0, i-WINDOW_SIZE);
+        $( "#slider-range" ).slider("option", "values", [newMin, i]);
+        updateScene(newMin, i);
+        i++;
+        if (i > stop) {
+            clearInterval(timer);
+        }
+    }, 100);
+});
+
+update_slider_text();
 update_data();
